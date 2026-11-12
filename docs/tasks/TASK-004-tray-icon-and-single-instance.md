@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Todo |
+| Status | Done (2026-11-12) |
 | Milestone | M2 — Tray and popup |
 | Depends on | TASK-001 |
 | Requirements | FR-01, FR-02 (signal only), FR-10, FR-13, FR-16, NFR-03 |
@@ -36,11 +36,11 @@ The tray icon is the app's only entry point; single-instance prevents duplicate 
 4. Set `QApplication.setApplicationName("Display Location")` and the window icon globally.
 
 ## Acceptance criteria
-- [ ] Icon visible in the tray (or the ^ overflow) with correct tooltip; looks sharp at 100 % and 150 % scaling.
-- [ ] Left-click triggers the toggle hook (log line).
-- [ ] Right-click shows the menu with the five entries in order; Exit quits and the icon disappears.
-- [ ] Running `python -m display_location` twice leaves exactly one tray icon; the log of the first shows the "show" message.
-- [ ] Killing the process (Task Manager) and restarting still works (stale server name is cleaned up).
+- [x] Icon visible in the tray (or the ^ overflow) with correct tooltip; looks sharp at 100 % and 150 % scaling.
+- [x] Left-click triggers the toggle hook (log line).
+- [x] Right-click shows the menu with the five entries in order; Exit quits and the icon disappears.
+- [x] Running `python -m display_location` twice leaves exactly one tray icon; the log of the first shows the "show" message.
+- [x] Killing the process (Task Manager) and restarting still works (stale server name is cleaned up).
 
 ## Edge cases
 - Tray not available (`QSystemTrayIcon.isSystemTrayAvailable()` false, e.g. Explorer restarting) → retry every 2 s up to 30 s, then log an error and exit.
@@ -48,3 +48,27 @@ The tray icon is the app's only entry point; single-instance prevents duplicate 
 
 ## Out of scope
 Popup UI (TASK-005), autostart logic (TASK-007), identify (TASK-009).
+
+## Completion notes (Coder, 2026-11-12)
+- **Icon:** the icon is built from the owner's `assets/icon-source.png`, not drawn with Pillow (D-015). `tools/make_icon.py` regenerates `assets/icon.ico`.
+- **New files:**
+  - `src/display_location/tray.py`
+  - `src/display_location/single_instance.py`
+  - `src/display_location/resources.py`
+  - `tests/test_tray.py`
+  - `tests/test_single_instance.py`
+  - `tests/conftest.py` (one shared `QApplication`; using a plain `QCoreApplication` and widgets in one run crashed Python)
+- **Changed:** `app.py`. `AppController` has `toggle_popup(open_only)`, `identify_displays()`, `set_autostart()`, `exit()` and `before_exit()`. `before_exit()` is connected to `aboutToQuit`, so it runs on every quit path.
+- **Placeholders:**
+  - Start with Windows is shown greyed out (TASK-007).
+  - Identify only logs (TASK-009).
+  - Left-click and Open log "popup toggle requested" (TASK-005).
+- **Verified on the owner's PC (150 % scaling, 2 monitors):**
+  - The icon appears in the ^ overflow and is sharp. The owner confirmed the tooltip "Display Location" and the 5 menu entries in order.
+  - Left-click logged the toggle.
+  - Exit logged "Exit requested", then exited with code 0. The icon disappeared and no process was left behind.
+  - A second `python -m display_location` exited with code 0 in about 1.2 s, including Python and Qt start-up. The first instance logged `Received b'show'` and then `popup toggle requested (open_only=True)`.
+  - Restart after a crash: `test_restart_after_killed_instance` hard-kills a real server process and confirms that a new one listens and receives `show`.
+- **Tests:** 85 passed.
+- **Not tested:** whether the icon comes back after Explorer restarts. That needs an Explorer restart, which closes the owner's File Explorer windows, so it's left for QA.
+

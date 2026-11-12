@@ -19,7 +19,7 @@ Task files live in [tasks/](tasks/). Status values: `Todo` → `In progress` →
 ### M2 — Tray and popup
 | Task | Title | Depends on | Status |
 |---|---|---|---|
-| TASK-004 | Tray icon, context menu, single instance, app icon | 001 | Todo |
+| TASK-004 | Tray icon, context menu, single instance, app icon | 001 | Done |
 | TASK-005 | Popup window: look, position, open/close, status messages | 002, 003, 004 | Todo |
 | TASK-006 | Drag & snap tile 2, apply, Keep/Revert countdown | 005 | Todo |
 

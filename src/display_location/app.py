@@ -7,25 +7,84 @@ import signal
 import sys
 
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from display_location import __version__
 from display_location.log_setup import setup_logging
+from display_location.resources import icon_path
+from display_location.single_instance import SingleInstance
+from display_location.tray import TrayIcon
 
 log = logging.getLogger("display_location.app")
 
+TRAY_RETRY_MS = 2000
+TRAY_RETRY_LIMIT_S = 30
+
 
 class AppController:
-    """Wires the components together (tray, popup, revert, ...). Filled in by later tasks."""
+    """Owns the components and connects them. Holds no display logic itself."""
 
-    def __init__(self, app: QApplication) -> None:
+    def __init__(self, app: QApplication, single: SingleInstance, icon: QIcon) -> None:
         self.app = app
+        self.single = single
+        self.icon = icon
+        self.tray: TrayIcon | None = None
+        self._tray_waited_s = 0
+        self._exiting = False
+
+    # ------------------------------------------------------------------ startup
 
     def start(self) -> None:
-        pass
+        self.single.show_requested.connect(lambda: self.toggle_popup(open_only=True))
+        self.app.aboutToQuit.connect(self.before_exit)
+        self._create_tray_when_available()
 
-    def shutdown(self) -> None:
-        pass
+    def _create_tray_when_available(self) -> None:
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            if self._tray_waited_s >= TRAY_RETRY_LIMIT_S:
+                log.error("System tray not available after %d s; exiting", TRAY_RETRY_LIMIT_S)
+                self.app.exit(1)
+                return
+            log.warning("System tray not available yet; retrying in %d s", TRAY_RETRY_MS // 1000)
+            self._tray_waited_s += TRAY_RETRY_MS // 1000
+            QTimer.singleShot(TRAY_RETRY_MS, self._create_tray_when_available)
+            return
+
+        self.tray = TrayIcon(self.icon)
+        self.tray.toggle_requested.connect(self.toggle_popup)
+        self.tray.open_requested.connect(lambda: self.toggle_popup(open_only=True))
+        self.tray.identify_requested.connect(self.identify_displays)
+        self.tray.autostart_toggled.connect(self.set_autostart)
+        self.tray.exit_requested.connect(self.exit)
+        self.tray.show()
+
+    # ------------------------------------------------------------------ actions
+
+    def toggle_popup(self, open_only: bool = False) -> None:
+        log.info("popup toggle requested (open_only=%s)", open_only)  # popup arrives in TASK-005
+
+    def identify_displays(self) -> None:
+        log.info("identify displays requested (not implemented until TASK-009)")
+
+    def set_autostart(self, enabled: bool) -> None:
+        log.info("start with Windows -> %s requested (not implemented until TASK-007)", enabled)
+
+    def exit(self) -> None:
+        log.info("Exit requested from the tray menu")
+        self.app.quit()
+
+    def before_exit(self) -> None:
+        """Runs once on every quit path (menu Exit, Ctrl+C, ...).
+
+        TASK-006: revert an unconfirmed display change here (FR-16, D-013).
+        """
+        if self._exiting:
+            return
+        self._exiting = True
+        if self.tray is not None:
+            self.tray.hide()
+        self.single.close()
 
 
 def _install_sigint_handler(app: QApplication) -> QTimer:
@@ -49,14 +108,26 @@ def main() -> int:
     app.setApplicationVersion(__version__)
     app.setQuitOnLastWindowClosed(False)
 
+    # Single-instance check runs before any tray icon exists (TASK-004 req. 2).
+    single = SingleInstance()
+    if single.notify_running():
+        log.info("Display Location exiting: already running")
+        return 0
+    single.listen()
+
+    icon = QIcon(str(icon_path()))
+    if icon.isNull():
+        log.error("Icon not found at %s", icon_path())
+    app.setWindowIcon(icon)
+
     sigint_timer = _install_sigint_handler(app)  # noqa: F841 — keep a reference
 
-    controller = AppController(app)
+    controller = AppController(app, single, icon)
     controller.start()
     code = 1
     try:
         code = app.exec()
     finally:
-        controller.shutdown()
+        controller.before_exit()
         log.info("Display Location exiting (code %s)", code)
     return code

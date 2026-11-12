@@ -28,9 +28,10 @@ Display Location/
 ├─ requirements-dev.txt          dev tools (pytest, pyinstaller, pillow)
 ├─ build.ps1                     one-command exe build (TASK-010)
 ├─ assets/
-│  └─ icon.ico                   app + tray icon (multi-size 16…256)
+│  ├─ icon-source.png            owner's artwork, the master for the icon (D-015)
+│  └─ icon.ico                   app + tray icon (multi-size 16…256), generated
 ├─ tools/
-│  └─ make_icon.py               regenerates assets/icon.ico (Pillow)
+│  └─ make_icon.py               regenerates assets/icon.ico from icon-source.png (Pillow)
 ├─ src/display_location/
 │  ├─ __init__.py                __version__
 │  ├─ __main__.py                entry point: CLI flags or start the tray app
@@ -43,10 +44,14 @@ Display Location/
 │  ├─ identify.py                "Identify displays" overlays
 │  ├─ autostart.py               HKCU Run key read/write
 │  ├─ single_instance.py         QLocalServer/QLocalSocket guard
+│  ├─ resources.py               finds assets/ from source or the PyInstaller bundle
 │  └─ log_setup.py               rotating file logging
 ├─ tests/
 │  ├─ test_layout.py             unit tests for layout.py (required)
-│  └─ test_autostart.py          registry tests using a temp value name
+│  ├─ test_autostart.py          registry tests using a temp value name
+│  ├─ test_single_instance.py    second-launch and killed-instance tests (real processes)
+│  ├─ test_tray.py               menu order, tooltip, signals
+│  └─ conftest.py                one shared QApplication for all tests
 └─ docs/                         shared project memory (this folder)
 ```
 
@@ -216,6 +221,10 @@ primary tile is centred in the canvas; secondary tile = its physical rect × sca
 
 - `QSystemTrayIcon` with `assets/icon.ico` (loaded via a resource-path helper that works both from source and inside the PyInstaller bundle: `sys._MEIPASS`).
 - `activated(Trigger)` → controller toggles popup. `Context` → menu (FR-10). Menu items rebuilt / re-checked on `aboutToShow` so "Start with Windows" reflects the registry (FR-12).
+- **As built (TASK-004):** `TrayIcon` only emits signals (`toggle_requested`, `open_requested`, `identify_requested`, `autostart_toggled`, `exit_requested`). `AppController` connects them. On `aboutToShow`, the menu asks `tray.autostart_state()`, which returns True/False, or None meaning "not available" (the item is then greyed out). TASK-007 replaces that callable.
+- **Quit path:** every quit goes through `QApplication.aboutToQuit` → `AppController.before_exit()`, which runs once. This covers menu Exit, Ctrl+C and anything else that quits. TASK-006 adds the revert-on-exit to that hook (FR-16).
+- **Tray not ready at start** (e.g. Explorer is starting): retry every 2 s, give up after 30 s with exit code 1.
+- New tray icons land in the taskbar's **^ overflow** until the user drags them out. `tray.geometry()` then reports the ^ button's rectangle, which is still a good anchor for the popup (§6).
 
 ## 9. Identify (`identify.py`)
 
@@ -231,6 +240,8 @@ For each `Display`, find the `QScreen` whose `name()` equals `device_name`; show
 ## 11. Single instance (`single_instance.py`)
 
 Server name `DisplayLocation-<USERNAME>`. At start: `QLocalSocket.connectToServer`; if connected within 300 ms → send `b"show"` → exit with code 0. Otherwise `QLocalServer.removeServer(name)` then `listen(name)`; incoming `show` → controller opens popup (FR-13).
+
+The check runs right after `QApplication` is created and before the icon or tray exists. `<USERNAME>` is cleaned to `[A-Za-z0-9_.-]`. Testing note: from a venv, `python.exe` is a launcher that starts the real interpreter as a child. When the launcher is killed, the child dies a moment later, so a test that restarts straight away must wait for the old server to go.
 
 ## 12. Display change handling (FR-14)
 
