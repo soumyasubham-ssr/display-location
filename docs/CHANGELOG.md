@@ -3,6 +3,7 @@
 Notable changes to docs, decisions and the app. Newest first.
 
 ## 2026-11-12
+- **App:** TASK-005 done. Popup window with the arrangement canvas, FR-15 status messages, positioning above the tray icon and the 300 ms toggle guard. 104 tests. Owner checked it on the real tray: all OK.
 - **App:** TASK-004 done. Tray icon and menu, single instance (`QLocalServer`), resource-path helper, and an app icon built from the owner's artwork (new decision D-015). 85 tests.
 - **App:** TASK-003 done. `layout.py` has the snap, describe and canvas maths, with 66 unit tests. `--side` now uses `layout.placed()`. M1 Foundation is complete.
 - **App:** TASK-002 done. `displays.py` Win32 backend (`snapshot`, `set_position`, duplicate detection), plus the `--list` / `--side` CLI. Verified on the owner's two monitors. New decision D-014 (duplicate detection via `QueryDisplayConfig`).

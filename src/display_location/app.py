@@ -5,13 +5,15 @@ from __future__ import annotations
 import logging
 import signal
 import sys
+import time
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
-from display_location import __version__
+from display_location import __version__, displays
 from display_location.log_setup import setup_logging
+from display_location.popup import Popup
 from display_location.resources import icon_path
 from display_location.single_instance import SingleInstance
 from display_location.tray import TrayIcon
@@ -20,6 +22,7 @@ log = logging.getLogger("display_location.app")
 
 TRAY_RETRY_MS = 2000
 TRAY_RETRY_LIMIT_S = 30
+TOGGLE_GUARD_S = 0.3  # ignore a tray click this soon after the popup closed itself (§6)
 
 
 class AppController:
@@ -30,6 +33,8 @@ class AppController:
         self.single = single
         self.icon = icon
         self.tray: TrayIcon | None = None
+        self.popup: Popup | None = None
+        self.snapshot_fn = displays.snapshot  # replaceable in tests
         self._tray_waited_s = 0
         self._exiting = False
 
@@ -62,7 +67,30 @@ class AppController:
     # ------------------------------------------------------------------ actions
 
     def toggle_popup(self, open_only: bool = False) -> None:
-        log.info("popup toggle requested (open_only=%s)", open_only)  # popup arrives in TASK-005
+        """Left-click toggles; menu Open / second launch only open (FR-02, FR-13)."""
+        popup = self._ensure_popup()
+        if popup.isVisible():
+            if not open_only:
+                popup.close()
+            return
+        # Clicking the tray icon while the popup is open closes it (outside click)
+        # and then delivers `activated`: don't reopen straight away.
+        if (
+            not open_only
+            and popup.closed_at is not None
+            and time.monotonic() - popup.closed_at < TOGGLE_GUARD_S
+        ):
+            log.info("tray click right after the popup closed; not reopening")
+            return
+        snap = self.snapshot_fn()
+        log.info("Opening popup: %s", snap)
+        anchor = self.tray.geometry() if self.tray is not None else None
+        popup.open(snap, anchor)
+
+    def _ensure_popup(self) -> Popup:
+        if self.popup is None:
+            self.popup = Popup()
+        return self.popup
 
     def identify_displays(self) -> None:
         log.info("identify displays requested (not implemented until TASK-009)")
@@ -82,6 +110,8 @@ class AppController:
         if self._exiting:
             return
         self._exiting = True
+        if self.popup is not None:
+            self.popup.close()
         if self.tray is not None:
             self.tray.hide()
         self.single.close()
