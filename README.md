@@ -44,3 +44,7 @@ python -m pytest                    # tests
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Milestones and task order |
 | [docs/tasks/](docs/tasks/) | Executable task files |
 | [docs/AI_WORKFLOW.md](docs/AI_WORKFLOW.md) | AI role workflow settings |
+
+## License
+
+[MIT](LICENSE)

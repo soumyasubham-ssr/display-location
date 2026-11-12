@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Windows tray app to reposition the second monitor around the primary."
 readme = "README.md"
 requires-python = ">=3.14"
+license = "MIT"
 dependencies = [
     "PySide6",
     "pywin32",
