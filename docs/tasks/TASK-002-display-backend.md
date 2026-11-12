@@ -60,5 +60,5 @@ Snap maths (TASK-003), UI, revert (TASK-006).
 - **No admin:** the tests ran in a non-elevated session.
 - **Tests:** `pytest` gives 13 passed. `tests/test_displays.py` is read-only. It also covers the error-code mapping, refusing to move the primary or an unknown device, the centring maths and the `--list` format.
 - **Not tested:** mixed scaling (both monitors were at their default scale). Leave this for QA.
-- **Follow-up for TASK-003:** switch `--side` from `displays.centred_position()` to `layout.py`.
+- **Follow-up for TASK-003:** switch `--side` from `displays.centred_position()` to `layout.py`. Done in TASK-003.
 

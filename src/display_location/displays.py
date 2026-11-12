@@ -282,25 +282,6 @@ def set_position(device_name: str, x: int, y: int) -> None:
 
 # --------------------------------------------------------------------------- CLI helpers
 
-SIDES = ("left", "right", "top", "bottom")
-
-
-def centred_position(primary: Display, secondary: Display, side: str) -> tuple[int, int]:
-    """Top-left for ``secondary`` centred on ``side`` of a primary at (0, 0).
-
-    Temporary inline maths for the --side debug flag; switch to layout.py once TASK-003 lands.
-    """
-    pw, ph, sw, sh = primary.width, primary.height, secondary.width, secondary.height
-    if side == "right":
-        return pw, round((ph - sh) / 2)
-    if side == "left":
-        return -sw, round((ph - sh) / 2)
-    if side == "bottom":
-        return round((pw - sw) / 2), ph
-    if side == "top":
-        return round((pw - sw) / 2), -sh
-    raise ValueError(f"side must be one of {SIDES}")
-
 
 def format_snapshot(snap: DisplaySnapshot) -> str:
     rows = [("#", "device", "name", "primary", "x", "y", "width", "height")]

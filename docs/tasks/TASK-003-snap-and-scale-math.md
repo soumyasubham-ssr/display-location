@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Todo |
+| Status | Done (2026-11-12) |
 | Milestone | M1 — Foundation |
 | Depends on | TASK-001 |
 | Requirements | FR-03 (footer label), FR-06, FR-08 |
@@ -43,15 +43,15 @@ def from_canvas(cx, cy, scale, origin_x, origin_y) -> tuple[int, int]
 3. No imports from PySide6 or pywin32.
 
 ## Acceptance criteria (tests must cover)
-- [ ] Drop clearly to the right / left / above / below → correct side and edge coordinate (`x == Pw`, `x == -Sw`, `y == -Sh`, `y == Ph`).
-- [ ] Diagonal drop exactly on a corner (|nx| == |ny|) → horizontal side.
-- [ ] Drop far beyond the end of an edge → clamped so overlap is ≥ 10 % of the shorter edge.
-- [ ] Drop within 5 % of centred → exactly centred; same for start- and end-aligned.
-- [ ] Different sizes: primary 2560×1440, secondary 1920×1080, and secondary larger than primary (3840×2160 next to 1920×1080).
-- [ ] Portrait secondary (1080×1920).
-- [ ] `from_canvas(to_canvas(...))` round-trips within 1 px.
-- [ ] `describe` returns the expected strings for all four sides and alignments.
-- [ ] `python -m pytest` passes.
+- [x] Drop clearly to the right / left / above / below → correct side and edge coordinate (`x == Pw`, `x == -Sw`, `y == -Sh`, `y == Ph`).
+- [x] Diagonal drop exactly on a corner (|nx| == |ny|) → horizontal side.
+- [x] Drop far beyond the end of an edge → clamped so overlap is ≥ 10 % of the shorter edge.
+- [x] Drop within 5 % of centred → exactly centred; same for start- and end-aligned.
+- [x] Different sizes: primary 2560×1440, secondary 1920×1080, and secondary larger than primary (3840×2160 next to 1920×1080).
+- [x] Portrait secondary (1080×1920).
+- [x] `from_canvas(to_canvas(...))` round-trips within 1 px.
+- [x] `describe` returns the expected strings for all four sides and alignments.
+- [x] `python -m pytest` passes.
 
 ## Edge cases
 - Secondary edge equal to primary edge → start, centre and end coincide; result must be 0.
@@ -59,3 +59,11 @@ def from_canvas(cx, cy, scale, origin_x, origin_y) -> tuple[int, int]
 
 ## Out of scope
 Drawing and drag handling (TASK-005/006).
+
+## Completion notes (Coder, 2026-11-12)
+- Implemented `layout.py` following ARCHITECTURE §5.1–5.4. Implementation details are in §5.5: half-up rounding, the `placed()` and `canvas_origin()` helpers, and "(centred)" winning when the edges are equal.
+- `tests/test_layout.py` has 66 tests. They cover every acceptance item, the owner's real 1920×1080 + 2400×1080 layouts, and a check that no Qt/Win32 module is imported. A randomised check (2,000 drops × 6 size pairs) confirms every snap touches the primary and overlaps it by ≥ 10 % of the shorter edge.
+- **Test inputs I corrected:** my first clamp tests dropped far down (y = 5000). There BOTTOM is the correct side, so they never reached the clamp. The clamp cases now drop far down *and* even further to the side.
+- **TASK-002 follow-up done:** `--side` now uses `layout.placed()`, and `displays.centred_position()` is removed. Checked on the owner's monitors: `--side left` put monitor 2 at (-2400, 0), and `--side right` restored (1920, 0).
+- Full suite: 75 passed.
+

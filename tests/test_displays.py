@@ -53,19 +53,9 @@ def test_error_message_mapping():
     assert "not supported" in str(info.value)
 
 
-P = Display(r"\\.\DISPLAY1", "A", 0, 0, 1920, 1080, True)
-S = Display(r"\\.\DISPLAY2", "B", 0, 0, 1280, 1024, False)
-
-
-@pytest.mark.parametrize(
-    "side, expected",
-    [("right", (1920, 28)), ("left", (-1280, 28)), ("bottom", (320, 1080)), ("top", (320, -1024))],
-)
-def test_centred_position(side, expected):
-    assert displays.centred_position(P, S, side) == expected
-
-
 def test_format_snapshot_lists_primary_first():
+    P = Display(r"\\.\DISPLAY1", "A", 0, 0, 1920, 1080, True)
+    S = Display(r"\\.\DISPLAY2", "B", 0, 0, 1280, 1024, False)
     snap = displays.DisplaySnapshot(DisplayStatus.OK, P, S, (S, P))
     lines = displays.format_snapshot(snap).splitlines()
     assert lines[0] == "status: ok"

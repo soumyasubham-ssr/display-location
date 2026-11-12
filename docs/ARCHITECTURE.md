@@ -135,7 +135,7 @@ rc = win32api.ChangeDisplaySettingsEx()   # apply all staged changes
 `python -m display_location --list` prints the snapshot as a table.
 `python -m display_location --side right|left|top|bottom` moves the secondary to that side, centred, with **no** revert (developer use only; documented in README). It refuses (exit code 2) unless the status is `ok`.
 
-Implemented in TASK-002. Duplicate detection uses `QueryDisplayConfig` (D-014). The centring for `--side` lives in `displays.centred_position()` for now. Once `layout.py` exists (TASK-003), it should call `layout` instead.
+Implemented in TASK-002. Duplicate detection uses `QueryDisplayConfig` (D-014). Since TASK-003, `--side` gets its centred position from `layout.placed()`.
 
 ## 5. Snap and scale maths (`layout.py`)
 
@@ -188,6 +188,13 @@ primary tile is centred in the canvas; secondary tile = its physical rect × sca
 ```
 
 `to_canvas()` / `from_canvas()` helpers convert between physical and canvas coordinates.
+
+### 5.5 Implementation notes (TASK-003)
+
+- **Rounding:** every rounding step rounds half up (`floor(v + 0.5)`), not with Python's `round()`. `round()` rounds halves to the nearest even number, so whether "centred" matched would depend on the parity of `(p - s)`.
+- **Extra helpers:** `placed(pw, ph, sw, sh, side, align)` gives the start-aligned, centred or end-aligned top-left, and `--side` uses it. `canvas_origin(cw, ch, pw, ph, scale)` gives the canvas point for physical (0, 0) with the primary tile centred, for TASK-005.
+- **`describe` with equal edge lengths:** start, centre and end are then the same position, and the label says "(centred)".
+- **`canvas_scale`:** never returns less than `1e-6`, so a zero-size canvas can't cause a division by zero.
 
 ## 6. Popup (`popup.py`)
 

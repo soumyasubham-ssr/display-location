@@ -35,7 +35,7 @@ def _cli_list() -> int:
 
 
 def _cli_side(side: str) -> int:
-    from display_location import displays
+    from display_location import displays, layout
     from display_location.log_setup import setup_logging
 
     setup_logging()
@@ -44,7 +44,8 @@ def _cli_side(side: str) -> int:
         print(displays.format_snapshot(snap))
         print(f"error: need exactly two extended displays (status: {snap.status.value})", file=sys.stderr)
         return 2
-    x, y = displays.centred_position(snap.primary, snap.secondary, side)
+    p, s = snap.primary, snap.secondary
+    x, y = layout.placed(p.width, p.height, s.width, s.height, layout.Side(side))
     try:
         displays.set_position(snap.secondary.device_name, x, y)
     except displays.DisplayChangeError as exc:
