@@ -1,0 +1,9 @@
+# Changelog — Display Location
+
+Notable changes to docs, decisions and the app. Newest first.
+
+## 2026-11-12
+- **App:** TASK-001 done. Package scaffold (`pyproject.toml`, `src/display_location/`, rotating log, Qt entry point, smoke tests), Python 3.14 venv. D-009 Accepted (Python 3.14).
+- **Docs:** Project set up with the role workflow ([AI_WORKFLOW.md](AI_WORKFLOW.md)). Manager wrote [REQUIREMENTS.md](REQUIREMENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), [DECISIONS.md](DECISIONS.md) (D-001 … D-013), [ROADMAP.md](ROADMAP.md), and the README.
+- **Scope:** Independent taskbars / per-monitor desktops moved to Windhawk mods (D-001); this app only repositions the second monitor.
+- **Tasks:** Tasker created TASK-001 … TASK-010.
