@@ -1,7 +1,9 @@
 """Popup window and arrangement canvas (FR-02 … FR-05, FR-15; ARCHITECTURE §6).
 
-TASK-005 builds the static view. Dragging, applying and the revert bar
-behaviour come in TASK-006; live refresh while open in TASK-008.
+TASK-005 built the static view; TASK-006 adds dragging tile 2 (FR-06), the
+Keep/Revert bar (FR-07) and the inline error (FR-09). The popup never changes
+displays itself: it emits ``position_chosen`` and the controller applies it.
+Live refresh while open comes in TASK-008.
 """
 
 from __future__ import annotations
@@ -9,7 +11,18 @@ from __future__ import annotations
 import logging
 import time
 
-from PySide6.QtCore import QPoint, QRect, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import (
+    QEasingCurve,
+    QPoint,
+    QPointF,
+    QRect,
+    QRectF,
+    QSize,
+    Qt,
+    QTimer,
+    QVariantAnimation,
+    Signal,
+)
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QGuiApplication, QKeyEvent, QPainter, QPen
 from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
@@ -38,13 +51,16 @@ BORDER = QColor("#3a3a3a")
 TILE_1 = QColor("#2d2d2d")
 TILE_1_BORDER = QColor("#4a4a4a")
 TILE_2 = QColor("#a64dbf")
-TILE_2_HOVER = QColor("#bd6fd3")  # lighter accent, used by TASK-006 (hover / drag)
+TILE_2_HOVER = QColor("#bd6fd3")  # lighter accent while hovered / dragged
 TEXT = QColor("#ffffff")
 TEXT_DIM = QColor("#c8c8c8")
 ERROR = QColor("#ff99a4")
 
 NUMBER_PT = 28
 TILE_RADIUS = 4
+SNAP_ANIMATION_MS = 120
+ERROR_SHOW_MS = 5000
+BOTTOM_ROW_H = 34  # fits the revert buttons or a two-line error
 
 TITLE = "Display arrangement"
 STATUS_MESSAGES = {
@@ -101,17 +117,55 @@ def popup_position(frame: QSize, anchor: QRect | None, available: QRect, margin:
 
 
 class ArrangementCanvas(QWidget):
-    """Draws tile 1 (primary) and tile 2 (secondary) in their real relative positions."""
+    """Draws tile 1 (primary) and tile 2 (secondary) in their real relative positions.
+
+    Tile 2 can be dragged (FR-06). On release the drop is snapped with
+    ``layout.snap``, the tile animates there and ``position_chosen(x, y)`` is
+    emitted with the secondary's new physical top-left, unless it equals the
+    current position (FR-08).
+    """
+
+    position_chosen = Signal(int, int)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.snapshot: DisplaySnapshot | None = None
         self.font_family = ui_font_family()
-        self.setMinimumSize(200, 120)
+        self.drag_enabled = True
+        self._dragging = False
+        self._hover = False
+        self._grab_offset = QPointF()
+        # Canvas rect drawn for tile 2 instead of the real one (while dragging / animating).
+        self._override: QRectF | None = None
+        self._anim = QVariantAnimation(self)
+        self._anim.setDuration(SNAP_ANIMATION_MS)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._anim.valueChanged.connect(self._on_anim_value)
+        self._anim.finished.connect(self._on_anim_finished)
+        self._after_anim = None
+        self.setMinimumSize(200, 100)
+        self.setMouseTracking(True)
 
-    def set_snapshot(self, snap: DisplaySnapshot | None) -> None:
+    def set_snapshot(self, snap: DisplaySnapshot | None, animate: bool = False) -> None:
+        """Show ``snap``. With ``animate``, tile 2 glides from where it is drawn now
+        to its new real position (used after apply, revert and failures)."""
+        old = self._drawn_tile2()
         self.snapshot = snap
+        if self._dragging:
+            return  # keep following the mouse; the drop decides
+        rects = self.tile_rects()
+        if animate and old is not None and rects is not None and old != rects[1]:
+            self._animate(old, rects[1], None)
+        else:
+            self._anim.stop()
+            self._after_anim = None
+            self._override = None
         self.update()
+
+    @property
+    def busy(self) -> bool:
+        """Dragging or animating."""
+        return self._dragging or self._anim.state() == QVariantAnimation.State.Running
 
     # Geometry helpers (also for TASK-006: hit-testing and from_canvas).
 
@@ -142,6 +196,105 @@ class ArrangementCanvas(QWidget):
         r2 = layout.to_canvas(layout.Rect(s.x - p.x, s.y - p.y, s.width, s.height), scale, ox, oy)
         return QRectF(*r1), QRectF(*r2)
 
+    def _drawn_tile2(self) -> QRectF | None:
+        if self._override is not None:
+            return QRectF(self._override)
+        rects = self.tile_rects()
+        return rects[1] if rects else None
+
+    # ------------------------------------------------------------------ drag (FR-06)
+
+    def _can_drag(self) -> bool:
+        return self.drag_enabled and self.tile_rects() is not None and not self.busy
+
+    def _update_cursor(self, pos: QPointF) -> None:
+        r2 = self._drawn_tile2()
+        over = r2 is not None and r2.contains(pos) and self.drag_enabled
+        if self._dragging:
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+        elif over:
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+        else:
+            self.unsetCursor()
+        if over != self._hover:
+            self._hover = over
+            self.update()
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        pos = event.position()
+        r2 = self._drawn_tile2()
+        if event.button() == Qt.MouseButton.LeftButton and self._can_drag() and r2.contains(pos):
+            self._dragging = True
+            self._grab_offset = pos - r2.topLeft()
+            self._override = r2
+            self._update_cursor(pos)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        pos = event.position()
+        if self._dragging:
+            self._override = QRectF(pos - self._grab_offset, self._override.size())
+            self.update()
+        self._update_cursor(pos)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if not (self._dragging and event.button() == Qt.MouseButton.LeftButton):
+            super().mouseReleaseEvent(event)
+            return
+        self._dragging = False
+        self._override = QRectF(event.position() - self._grab_offset, self._override.size())
+        self._update_cursor(event.position())
+        self.drop(self._override.topLeft())
+
+    def drop(self, canvas_top_left: QPointF) -> None:
+        """Snap a tile-2 drop whose top-left is at ``canvas_top_left`` and emit the result."""
+        rects = self.tile_rects()
+        if rects is None:
+            self._override = None
+            self.update()
+            return
+        scale, ox, oy = self.transform()
+        p, s = self.snapshot.primary, self.snapshot.secondary
+        px, py = layout.from_canvas(canvas_top_left.x(), canvas_top_left.y(), scale, ox, oy)
+        side, x, y = layout.snap(p.width, p.height, s.width, s.height, px, py)
+        current = (s.x - p.x, s.y - p.y)
+        target = QRectF(*layout.to_canvas(layout.Rect(x, y, s.width, s.height), scale, ox, oy))
+        start = self._override if self._override is not None else rects[1]
+        log.info("Tile 2 dropped at %s -> snapped %s (%d, %d)", (px, py), side.value, x, y)
+        if (x, y) == current:
+            log.info("Same position as now; nothing to apply (FR-08)")
+            self._animate(start, target, None)
+        else:
+            # Keep drawing the snapped spot until the controller sends the read-back snapshot.
+            self._animate(start, target, lambda: self.position_chosen.emit(x, y), keep=True)
+
+    # ------------------------------------------------------------------ animation
+
+    def _animate(self, start: QRectF, end: QRectF, after, keep: bool = False) -> None:
+        self._anim.stop()
+        self._after_anim = (after, keep)
+        self._override = QRectF(start)
+        self._anim.setStartValue(QRectF(start))
+        self._anim.setEndValue(QRectF(end))
+        self._anim.start()
+
+    def _on_anim_value(self, value) -> None:
+        self._override = QRectF(value)
+        self.update()
+
+    def _on_anim_finished(self) -> None:
+        after, keep = self._after_anim or (None, False)
+        self._after_anim = None
+        if not keep:
+            self._override = None
+            self.update()
+        if after is not None:
+            after()
+
+    # ------------------------------------------------------------------ paint
+
     def paintEvent(self, event) -> None:  # noqa: N802 (Qt name)
         rects = self.tile_rects()
         if rects is None:
@@ -149,7 +302,8 @@ class ArrangementCanvas(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         self._draw_tile(painter, rects[0], TILE_1, TILE_1_BORDER, "1")
-        self._draw_tile(painter, rects[1], TILE_2, TILE_2, "2")
+        accent = TILE_2_HOVER if (self._hover or self._dragging) else TILE_2
+        self._draw_tile(painter, self._drawn_tile2(), accent, accent, "2")
         painter.end()
 
     def _draw_tile(self, painter: QPainter, rect: QRectF, fill: QColor, border: QColor, number: str) -> None:
@@ -187,8 +341,9 @@ class Popup(QWidget):
     """Frameless popup anchored above the tray icon. Not movable (D-005)."""
 
     closed = Signal()
-    keep_clicked = Signal()  # TASK-006
-    revert_clicked = Signal()  # TASK-006
+    position_chosen = Signal(int, int)  # secondary's new physical top-left
+    keep_clicked = Signal()
+    revert_clicked = Signal()
 
     def __init__(self) -> None:
         super().__init__(
@@ -204,8 +359,7 @@ class Popup(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(SHADOW_MARGIN, SHADOW_MARGIN, SHADOW_MARGIN, SHADOW_MARGIN)
         self.panel = _Panel(self)
-        self.panel.setFixedWidth(FRAME_SIZE.width())
-        self.panel.setMinimumHeight(FRAME_SIZE.height())
+        self.panel.setFixedSize(FRAME_SIZE)  # the bottom row swaps content, so the size never changes
         shadow = QGraphicsDropShadowEffect(self.panel)
         shadow.setBlurRadius(SHADOW_MARGIN * 2)
         shadow.setOffset(0, 2)
@@ -224,6 +378,7 @@ class Popup(QWidget):
 
         self.stack = QStackedWidget()
         self.canvas = ArrangementCanvas()
+        self.canvas.position_chosen.connect(self.position_chosen)
         self.message = QLabel()
         self.message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.message.setWordWrap(True)
@@ -233,12 +388,21 @@ class Popup(QWidget):
         self.stack.addWidget(self.message)
         box.addWidget(self.stack, 1)
 
+        # Bottom row: fixed height so the canvas (and tile size) never changes when
+        # it swaps between footer, revert bar and error.
+        self.bottom = QWidget()
+        self.bottom.setFixedHeight(BOTTOM_ROW_H)
+        bottom = QVBoxLayout(self.bottom)
+        bottom.setContentsMargins(0, 0, 0, 0)
+        bottom.setSpacing(0)
+        box.addWidget(self.bottom)
+
         self.footer = QLabel()
         self.footer.setFont(QFont(family, 9))
         self.footer.setStyleSheet(f"color: {TEXT_DIM.name()};")
-        box.addWidget(self.footer)
+        bottom.addWidget(self.footer)
 
-        # Reserved for TASK-006: revert bar (FR-07) and inline error (FR-09).
+        # Bottom row shows one of: inline error (FR-09) > revert bar (FR-07) > footer.
         self.revert_bar = QWidget()
         bar = QHBoxLayout(self.revert_bar)
         bar.setContentsMargins(0, 0, 0, 0)
@@ -264,29 +428,68 @@ class Popup(QWidget):
         bar.addWidget(self.keep_button)
         bar.addWidget(self.revert_button)
         self.revert_bar.hide()
-        box.addWidget(self.revert_bar)
+        bottom.addWidget(self.revert_bar)
 
         self.error_label = QLabel()
         self.error_label.setWordWrap(True)
         self.error_label.setFont(QFont(family, 9))
         self.error_label.setStyleSheet(f"color: {ERROR.name()};")
         self.error_label.hide()
-        box.addWidget(self.error_label)
+        bottom.addWidget(self.error_label)
+
+        self._show_footer = False
+        self._revert_seconds: int | None = None
+        self._error_timer = QTimer(self)
+        self._error_timer.setSingleShot(True)
+        self._error_timer.setInterval(ERROR_SHOW_MS)
+        self._error_timer.timeout.connect(self.clear_error)
+
+    # ------------------------------------------------------------------ bottom row
+
+    def _update_bottom(self) -> None:
+        error = self._error_timer.isActive()
+        bar = not error and self._revert_seconds is not None
+        self.error_label.setVisible(error)
+        self.revert_bar.setVisible(bar)
+        self.footer.setVisible(not error and not bar and self._show_footer)
+
+    def show_revert(self, seconds: int) -> None:
+        """Show / update "Keep changes?  [Keep]  [Revert (n)]" (works while hidden too)."""
+        self._revert_seconds = seconds
+        self.revert_button.setText(f"Revert ({seconds})")
+        self._update_bottom()
+
+    def hide_revert(self) -> None:
+        self._revert_seconds = None
+        self._update_bottom()
+
+    def show_error(self, text: str) -> None:
+        """Red inline message for 5 s (FR-09)."""
+        self.error_label.setText(text)
+        self._error_timer.start()
+        self._update_bottom()
+
+    def clear_error(self) -> None:
+        self._error_timer.stop()
+        self._update_bottom()
 
     # ------------------------------------------------------------------ content
 
-    def refresh(self, snap: DisplaySnapshot) -> None:
-        """Show ``snap``: tiles + footer when OK, else the FR-15 message (TASK-008 calls this live)."""
+    def refresh(self, snap: DisplaySnapshot, animate: bool = False) -> None:
+        """Show ``snap``: tiles + footer when OK, else the FR-15 message (TASK-008 calls this live).
+
+        ``animate`` glides tile 2 from where it is drawn to the new real position."""
         if snap.status is DisplayStatus.OK:
-            self.canvas.set_snapshot(snap)
+            self.canvas.set_snapshot(snap, animate=animate and self.isVisible())
             self.footer.setText(footer_text(snap))
-            self.footer.show()
+            self._show_footer = True
             self.stack.setCurrentWidget(self.canvas)
         else:
             self.canvas.set_snapshot(None)
             self.message.setText(STATUS_MESSAGES[snap.status])
-            self.footer.hide()
+            self._show_footer = False
             self.stack.setCurrentWidget(self.message)
+        self._update_bottom()
 
     # ------------------------------------------------------------------ open / close
 
@@ -300,13 +503,12 @@ class Popup(QWidget):
         self.activateWindow()
 
     def place(self) -> None:
-        """Position the panel above the tray icon (call again if the popup's size changes)."""
+        """Position the panel above the tray icon."""
         screen = None
         if self._anchor is not None and self._anchor.isValid() and not self._anchor.isEmpty():
             screen = QGuiApplication.screenAt(self._anchor.center())
         screen = screen or QGuiApplication.primaryScreen()
-        panel = QSize(FRAME_SIZE.width(), max(FRAME_SIZE.height(), self.sizeHint().height() - 2 * SHADOW_MARGIN))
-        top_left = popup_position(panel, self._anchor, screen.availableGeometry())
+        top_left = popup_position(FRAME_SIZE, self._anchor, screen.availableGeometry())
         self.move(top_left - QPoint(SHADOW_MARGIN, SHADOW_MARGIN))
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802

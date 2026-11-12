@@ -213,6 +213,8 @@ primary tile is centred in the canvas; secondary tile = its physical rect × sca
 
 ## 7. Revert manager (`revert.py`)
 
+**As built (TASK-006):** `RevertManager(set_position)` takes the display call as a parameter, so tests use a fake. `start(device_name, previous)` stores the device too. `cancel(reason)` stops without reverting when the monitor has gone; it emits `finished(True)`. `revert_failed(str)` reports a revert that Windows rejected. The crash path is `log_setup.crash_handler`, set by the controller. The popup's bottom row has a fixed height and shows one of: error, then revert bar, then footer.
+
 - `start(previous: tuple[int, int])`: if no countdown is running, store `previous`; (re)start a 1 s `QTimer`, 10 ticks. Emits `tick(seconds_left)`, `finished(kept: bool)`.
 - `keep()`: stop, clear stored position, emit `finished(True)`.
 - `revert()` / timeout: `DisplayService.set_position(secondary, *previous)`, stop, emit `finished(False)`.

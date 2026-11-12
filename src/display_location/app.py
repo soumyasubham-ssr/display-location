@@ -12,9 +12,11 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from display_location import __version__, displays
+from display_location import log_setup
 from display_location.log_setup import setup_logging
 from display_location.popup import Popup
 from display_location.resources import icon_path
+from display_location.revert import RevertManager
 from display_location.single_instance import SingleInstance
 from display_location.tray import TrayIcon
 
@@ -35,6 +37,13 @@ class AppController:
         self.tray: TrayIcon | None = None
         self.popup: Popup | None = None
         self.snapshot_fn = displays.snapshot  # replaceable in tests
+        self.set_position_fn = displays.set_position  # replaceable in tests
+        self.snapshot: displays.DisplaySnapshot | None = None  # last one shown
+        self.revert = RevertManager(lambda name, x, y: self.set_position_fn(name, x, y))
+        self.revert.tick.connect(self._on_revert_tick)
+        self.revert.finished.connect(self._on_revert_finished)
+        self.revert.revert_failed.connect(self._on_revert_failed)
+        self._applying = False
         self._tray_waited_s = 0
         self._exiting = False
 
@@ -43,6 +52,7 @@ class AppController:
     def start(self) -> None:
         self.single.show_requested.connect(lambda: self.toggle_popup(open_only=True))
         self.app.aboutToQuit.connect(self.before_exit)
+        log_setup.crash_handler = self._revert_on_crash  # NFR-06
         self._create_tray_when_available()
 
     def _create_tray_when_available(self) -> None:
@@ -82,7 +92,7 @@ class AppController:
         ):
             log.info("tray click right after the popup closed; not reopening")
             return
-        snap = self.snapshot_fn()
+        snap = self._take_snapshot()
         log.info("Opening popup: %s", snap)
         anchor = self.tray.geometry() if self.tray is not None else None
         popup.open(snap, anchor)
@@ -90,7 +100,69 @@ class AppController:
     def _ensure_popup(self) -> Popup:
         if self.popup is None:
             self.popup = Popup()
+            self.popup.position_chosen.connect(self.apply_position)
+            self.popup.keep_clicked.connect(self.revert.keep)
+            self.popup.revert_clicked.connect(self.revert.revert)
         return self.popup
+
+    def _take_snapshot(self) -> displays.DisplaySnapshot:
+        snap = self.snapshot_fn()
+        self.snapshot = snap
+        # The monitor we would revert is gone: nothing to revert (TASK-008 does this live).
+        if self.revert.active and all(d.device_name != self.revert.device_name for d in snap.all):
+            self.revert.cancel(f"{self.revert.device_name} is no longer active")
+        return snap
+
+    # ------------------------------------------------------------------ apply / revert (FR-06 … FR-09)
+
+    def apply_position(self, x: int, y: int) -> None:
+        """Move the secondary to physical (x, y) and start / restart the countdown."""
+        snap = self.snapshot
+        if self._applying or snap is None or snap.status is not displays.DisplayStatus.OK:
+            return
+        secondary, primary = snap.secondary, snap.primary
+        previous = (secondary.x - primary.x, secondary.y - primary.y)
+        self._applying = True
+        if self.popup is not None:
+            self.popup.canvas.drag_enabled = False  # set_position is synchronous (req. 4)
+        try:
+            self.set_position_fn(secondary.device_name, x, y)
+        except displays.DisplayChangeError as exc:
+            log.error("Apply failed: %s", exc)
+            if self.popup is not None:
+                self.popup.show_error(f"Couldn't move display: {exc.message}")
+        else:
+            self.revert.start(secondary.device_name, previous)
+        finally:
+            self._applying = False
+            # Draw the read-back position (Windows may adjust it) or animate back on failure.
+            self._refresh_popup(animate=True)
+            if self.popup is not None:
+                self.popup.canvas.drag_enabled = True
+
+    def _refresh_popup(self, animate: bool = False) -> None:
+        snap = self._take_snapshot()
+        if self.popup is not None:
+            self.popup.refresh(snap, animate=animate)
+
+    def _on_revert_tick(self, seconds: int) -> None:
+        if self.popup is not None:
+            self.popup.show_revert(seconds)
+
+    def _on_revert_finished(self, kept: bool) -> None:
+        if self.popup is not None:
+            self.popup.hide_revert()
+        if not kept and not self._exiting:
+            self._refresh_popup(animate=True)
+
+    def _on_revert_failed(self, message: str) -> None:
+        if self.popup is not None:
+            self.popup.show_error(f"Couldn't revert display: {message}")
+
+    def _revert_on_crash(self) -> None:
+        if self.revert.active:
+            log.critical("Reverting the unconfirmed display change after an error")
+            self.revert.revert()
 
     def identify_displays(self) -> None:
         log.info("identify displays requested (not implemented until TASK-009)")
@@ -105,11 +177,15 @@ class AppController:
     def before_exit(self) -> None:
         """Runs once on every quit path (menu Exit, Ctrl+C, ...).
 
-        TASK-006: revert an unconfirmed display change here (FR-16, D-013).
+        An unconfirmed display change is reverted first (FR-16, D-013).
         """
         if self._exiting:
             return
         self._exiting = True
+        if self.revert.active:
+            log.info("Exiting during the countdown: reverting first")
+            self.revert.revert()
+        log_setup.crash_handler = None
         if self.popup is not None:
             self.popup.close()
         if self.tray is not None:

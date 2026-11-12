@@ -14,6 +14,9 @@ LOG_FORMAT = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
 
 log = logging.getLogger("display_location")
 
+# Set by the AppController: reverts an unconfirmed display change after a crash (NFR-06).
+crash_handler = None
+
 
 def log_dir() -> Path:
     base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
@@ -41,7 +44,11 @@ def _excepthook(exc_type, exc_value, exc_tb) -> None:
         sys.__excepthook__(exc_type, exc_value, exc_tb)
         return
     log.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_tb))
-    # TASK-006: if a revert countdown is active, attempt the revert here (NFR-06).
+    if crash_handler is not None:
+        try:
+            crash_handler()
+        except Exception:  # noqa: BLE001 - never let the hook itself raise
+            log.exception("Revert after the uncaught exception failed")
 
 
 def setup_logging(level: int = logging.INFO) -> Path:
