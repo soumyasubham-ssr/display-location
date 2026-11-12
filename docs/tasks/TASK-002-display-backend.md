@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Todo |
+| Status | Done (2026-11-12) |
 | Milestone | M1 — Foundation |
 | Depends on | TASK-001 |
 | Requirements | FR-07 (apply part), FR-09, FR-15, NFR-01, NFR-04; decisions D-003, D-011 |
@@ -38,12 +38,12 @@ The popup, revert logic and identify feature all need an accurate snapshot of th
 6. No Qt imports in this module.
 
 ## Acceptance criteria
-- [ ] `--list` matches what Windows Settings → Display shows (positions/resolutions).
-- [ ] `--side left|right|top|bottom` each visibly moves monitor 2 to that side (check by moving the mouse across the edge) and `--list` confirms the coordinates.
-- [ ] Afterwards restore the owner's original layout with `--side right` (or whatever it was).
-- [ ] With displays duplicated (Win+P → Duplicate), `--list` shows `status: duplicate` (or the documented fallback).
-- [ ] Works without admin rights.
-- [ ] `python -m pytest` passes.
+- [x] `--list` matches what Windows Settings → Display shows (positions/resolutions).
+- [x] `--side left|right|top|bottom` each visibly moves monitor 2 to that side (check by moving the mouse across the edge) and `--list` confirms the coordinates.
+- [x] Afterwards restore the owner's original layout with `--side right` (or whatever it was).
+- [x] With displays duplicated (Win+P → Duplicate), `--list` shows `status: duplicate` (or the documented fallback).
+- [x] Works without admin rights.
+- [x] `python -m pytest` passes.
 
 ## Edge cases
 - Disconnected/inactive adapters in the enumeration → ignored.
@@ -52,3 +52,13 @@ The popup, revert logic and identify feature all need an accurate snapshot of th
 
 ## Out of scope
 Snap maths (TASK-003), UI, revert (TASK-006).
+
+## Completion notes (Coder, 2026-11-12)
+- **Owner's setup:** DISPLAY1 "Generic PnP Monitor" 1920×1080 (primary). DISPLAY21 "Generic Non-PnP Monitor" 2400×1080, originally right of the primary at (1920, 0).
+- **`--side` results:** left (-2400, 0), top (-240, -1080), bottom (-240, 1080), right (1920, 0). Each matched the requested position exactly. A scripted check moved the cursor to each new centre of monitor 2, and `MonitorFromPoint` reported DISPLAY21 every time. The original layout was restored with `--side right`.
+- **Duplicate mode:** Win+P → Duplicate gives `status: duplicate` (D-014). One monitor alone gives `status: single`. Extend was restored afterwards with `DisplaySwitch.exe /extend`, which brought back the original layout.
+- **No admin:** the tests ran in a non-elevated session.
+- **Tests:** `pytest` gives 13 passed. `tests/test_displays.py` is read-only. It also covers the error-code mapping, refusing to move the primary or an unknown device, the centring maths and the `--list` format.
+- **Not tested:** mixed scaling (both monitors were at their default scale). Leave this for QA.
+- **Follow-up for TASK-003:** switch `--side` from `displays.centred_position()` to `layout.py`.
+

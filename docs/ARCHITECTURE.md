@@ -133,7 +133,9 @@ rc = win32api.ChangeDisplaySettingsEx()   # apply all staged changes
 ### 4.4 CLI (debug / audit aid)
 
 `python -m display_location --list` prints the snapshot as a table.
-`python -m display_location --side right|left|top|bottom` moves the secondary to that side, centred, with **no** revert (developer use only; documented in README).
+`python -m display_location --side right|left|top|bottom` moves the secondary to that side, centred, with **no** revert (developer use only; documented in README). It refuses (exit code 2) unless the status is `ok`.
+
+Implemented in TASK-002. Duplicate detection uses `QueryDisplayConfig` (D-014). The centring for `--side` lives in `displays.centred_position()` for now. Once `layout.py` exists (TASK-003), it should call `layout` instead.
 
 ## 5. Snap and scale maths (`layout.py`)
 

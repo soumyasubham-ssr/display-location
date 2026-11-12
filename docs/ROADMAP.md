@@ -11,7 +11,7 @@ Task files live in [tasks/](tasks/). Status values: `Todo` → `In progress` →
 | Task | Title | Depends on | Status |
 |---|---|---|---|
 | TASK-001 | Project scaffold, environment, logging, entry point | — | Done |
-| TASK-002 | Display backend: read and set monitor position + CLI | 001 | Todo |
+| TASK-002 | Display backend: read and set monitor position + CLI | 001 | Done |
 | TASK-003 | Snap and scale maths with unit tests | 001 | Todo |
 
 **Exit check:** `python -m display_location --list` prints both monitors; `--side left` really moves monitor 2; `pytest` green.

@@ -59,3 +59,10 @@ Each decision: context → decision → consequences. Status is **Accepted** unl
 
 ### D-013 — Exit during a revert countdown reverts
 - **Decision:** Safe default: an unconfirmed change is undone on Exit (FR-16).
+
+### D-014 — Duplicate mode is detected with `QueryDisplayConfig` (no fallback needed)
+- **Context:** ARCHITECTURE §4.2 step 5 planned `QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS)` via `ctypes`, with a "report SINGLE" fallback if it proved unreliable (TASK-002).
+- **Decision:** Use `QueryDisplayConfig`. When `EnumDisplayDevices` finds one attached desktop, count active paths against distinct `(adapter LUID, source id)` pairs. More paths than sources means DUPLICATE. Struct sizes were checked against wingdi.h (`DISPLAYCONFIG_PATH_INFO` 72 bytes, `DISPLAYCONFIG_MODE_INFO` 64).
+- **Verified (2026-11-12, owner's PC):** Win+P → Duplicate gave 2 active paths on 1 source, so `status: duplicate`. One monitor alone gave 1 path, so `status: single`. If the query fails, the code logs a warning and reports SINGLE.
+- **Consequences:** The FR-15 messages can tell "single" from "duplicate". In duplicate mode the one listed device may show the *other* monitor's friendly name. That's harmless, because no tiles are drawn in that state.
+

@@ -30,6 +30,7 @@ pip install -e . -r requirements-dev.txt
 
 python -m display_location          # run the tray app
 python -m display_location --list   # print monitors (debug)
+python -m display_location --side left   # dev only: move monitor 2 left/right/top/bottom, centred, NO revert
 python -m pytest                    # tests
 .\build.ps1                         # build dist\DisplayLocation.exe
 ```
