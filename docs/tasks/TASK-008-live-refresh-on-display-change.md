@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Todo |
+| Status | Done |
 | Milestone | M3 — System integration |
 | Depends on | TASK-005 (TASK-006 for the countdown part) |
 | Requirements | FR-14, FR-15, NFR-02 |
@@ -32,9 +32,9 @@ Without this, the popup could show a stale layout and the next drag could be com
 3. The app's own `set_position` also triggers these signals — refresh must be harmless (no extra apply, no countdown restart).
 
 ## Acceptance criteria
-- [ ] All four "Expected behaviour" scenarios observed on the owner's machine.
-- [ ] Idle CPU stays ~0 % in Task Manager over 1 minute.
-- [ ] Moving via the popup does not cause flicker loops or repeated log lines (one refresh per change).
+- [x] All four "Expected behaviour" scenarios observed on the owner's machine.
+- [x] Idle CPU stays ~0 % in Task Manager over 1 minute.
+- [x] Moving via the popup does not cause flicker loops or repeated log lines (one refresh per change).
 
 ## Edge cases
 - Resolution change of monitor 2 → tile size updates.
@@ -42,3 +42,14 @@ Without this, the popup could show a stale layout and the next drag could be com
 
 ## Out of scope
 Supporting 3+ monitors.
+
+## Completion notes (Coder, 2026-11-13)
+- **app.py:** `AppController._watch_screens()` (called from `start()`) connects `screenAdded`, `screenRemoved`, `primaryScreenChanged` and `geometryChanged` of every current screen; a newly added screen gets its `geometryChanged` connected in `_on_screen_added`. Every signal restarts a single-shot `QTimer` (`DISPLAY_DEBOUNCE_MS = 250`), so a burst gives one `displays.snapshot()` in `on_displays_changed()`. No timer runs while idle.
+- **Harmless after our own move:** if the new snapshot equals the one already shown (our `set_position` read-back), nothing is logged or redrawn; the refresh never calls `set_position` or `revert.start`.
+- **No drag interruption:** while the canvas is dragging or animating (or an apply is running), the refresh re-arms the debounce timer and runs after release.
+- **Countdown:** `_take_snapshot()` already cancels the countdown (`RevertManager.cancel`, from TASK-006) when the secondary is gone; the live refresh runs it even while the popup is closed. `revert.py` needed no change.
+- **popup.py:** only docstrings; `refresh(snap, animate=True)` is used live, so tiles glide to a new position.
+- **Exit:** `before_exit()` stops the debounce timer.
+- **Tests:** `tests/test_live_refresh.py` (12 tests: debounce, move/resize/unplug/replug/duplicate, countdown cancel with popup open and closed, own-move harmless, drag not interrupted, exit, primary swapped during the countdown). A script confirmed the signals connect to the real `\\.\DISPLAY1` / `\\.\DISPLAY5` screens.
+- **Owner check on the real monitors (2026-11-13):** all scenarios passed: arrangement changed in Settings, unplug/replug, Win+P Duplicate/Extend, unplug during the countdown (cancelled, no revert), resolution change, primary changed, idle CPU ~0 %, one log line per own move.
+- **Fix found in that run's log:** the owner made the other monitor primary and then changed it back while a countdown was running. At 0 the countdown tried to revert `DISPLAY1`, which was the primary again, and Windows refused ("The primary display cannot be moved"). `_take_snapshot()` now also cancels the countdown when the revert target is no longer the secondary. New test `test_primary_swapped_during_countdown_cancels_it`; 153 tests pass. This fix is covered by the unit test only, not re-checked on the monitors.

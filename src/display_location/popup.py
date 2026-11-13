@@ -3,7 +3,7 @@
 TASK-005 built the static view; TASK-006 adds dragging tile 2 (FR-06), the
 Keep/Revert bar (FR-07) and the inline error (FR-09). The popup never changes
 displays itself: it emits ``position_chosen`` and the controller applies it.
-Live refresh while open comes in TASK-008.
+The controller calls ``refresh`` live when displays change (TASK-008).
 """
 
 from __future__ import annotations
@@ -476,7 +476,7 @@ class Popup(QWidget):
     # ------------------------------------------------------------------ content
 
     def refresh(self, snap: DisplaySnapshot, animate: bool = False) -> None:
-        """Show ``snap``: tiles + footer when OK, else the FR-15 message (TASK-008 calls this live).
+        """Show ``snap``: tiles + footer when OK, else the FR-15 message (also live, FR-14).
 
         ``animate`` glides tile 2 from where it is drawn to the new real position."""
         if snap.status is DisplayStatus.OK:

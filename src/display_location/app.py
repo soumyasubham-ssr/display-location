@@ -8,7 +8,7 @@ import sys
 import time
 
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QScreen
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from display_location import __version__, autostart, displays
@@ -25,6 +25,7 @@ log = logging.getLogger("display_location.app")
 TRAY_RETRY_MS = 2000
 TRAY_RETRY_LIMIT_S = 30
 TOGGLE_GUARD_S = 0.3  # ignore a tray click this soon after the popup closed itself (§6)
+DISPLAY_DEBOUNCE_MS = 250  # one snapshot per burst of screen signals (§12)
 
 
 class AppController:
@@ -46,6 +47,12 @@ class AppController:
         self._applying = False
         self._tray_waited_s = 0
         self._exiting = False
+        # Display changes from outside the app (FR-14, §12): no polling, just a
+        # single-shot timer restarted by every screen signal.
+        self._display_timer = QTimer()
+        self._display_timer.setSingleShot(True)
+        self._display_timer.setInterval(DISPLAY_DEBOUNCE_MS)
+        self._display_timer.timeout.connect(self.on_displays_changed)
 
     # ------------------------------------------------------------------ startup
 
@@ -53,6 +60,7 @@ class AppController:
         self.single.show_requested.connect(lambda: self.toggle_popup(open_only=True))
         self.app.aboutToQuit.connect(self.before_exit)
         log_setup.crash_handler = self._revert_on_crash  # NFR-06
+        self._watch_screens()
         try:
             autostart.refresh_stale_path()  # exe moved since it was enabled (packaged exe only)
         except OSError as exc:
@@ -78,6 +86,44 @@ class AppController:
         self.tray.exit_requested.connect(self.exit)
         self.tray.autostart_state = self.autostart_state
         self.tray.show()
+
+    # ------------------------------------------------------------------ display changes (FR-14)
+
+    def _watch_screens(self) -> None:
+        self.app.screenAdded.connect(self._on_screen_added)
+        self.app.screenRemoved.connect(self.schedule_display_refresh)
+        self.app.primaryScreenChanged.connect(self.schedule_display_refresh)
+        for screen in self.app.screens():
+            screen.geometryChanged.connect(self.schedule_display_refresh)
+
+    def _on_screen_added(self, screen: QScreen) -> None:
+        screen.geometryChanged.connect(self.schedule_display_refresh)
+        self.schedule_display_refresh()
+
+    def schedule_display_refresh(self, *_args) -> None:
+        """Any screen signal: (re)start the debounce timer."""
+        if not self._exiting:
+            self._display_timer.start()
+
+    def on_displays_changed(self) -> None:
+        """Debounced: read the real state once and show it.
+
+        Harmless after the app's own ``set_position`` (same snapshot, no apply,
+        no countdown restart). An active drag or snap animation is never
+        interrupted: the refresh waits until it is over.
+        """
+        if self._exiting:
+            return
+        if self._applying or (self.popup is not None and self.popup.isVisible() and self.popup.canvas.busy):
+            self._display_timer.start()  # try again once the drag / apply is done
+            return
+        before = self.snapshot
+        snap = self._take_snapshot()
+        if snap == before:
+            return  # e.g. our own move, already shown from the read-back
+        log.info("Displays changed: %s", snap)
+        if self.popup is not None:
+            self.popup.refresh(snap, animate=True)
 
     # ------------------------------------------------------------------ actions
 
@@ -113,9 +159,14 @@ class AppController:
     def _take_snapshot(self) -> displays.DisplaySnapshot:
         snap = self.snapshot_fn()
         self.snapshot = snap
-        # The monitor we would revert is gone: nothing to revert (TASK-008 does this live).
-        if self.revert.active and all(d.device_name != self.revert.device_name for d in snap.all):
-            self.revert.cancel(f"{self.revert.device_name} is no longer active")
+        # The monitor we would revert is gone, or is now the primary (which can't be
+        # moved): nothing sensible to revert.
+        if self.revert.active:
+            device = self.revert.device_name
+            if all(d.device_name != device for d in snap.all):
+                self.revert.cancel(f"{device} is no longer active")
+            elif snap.secondary is None or snap.secondary.device_name != device:
+                self.revert.cancel(f"{device} is no longer the second display")
         return snap
 
     # ------------------------------------------------------------------ apply / revert (FR-06 … FR-09)
@@ -198,6 +249,7 @@ class AppController:
         if self._exiting:
             return
         self._exiting = True
+        self._display_timer.stop()
         if self.revert.active:
             log.info("Exiting during the countdown: reverting first")
             self.revert.revert()

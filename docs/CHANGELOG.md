@@ -2,6 +2,9 @@
 
 Notable changes to docs, decisions and the app. Newest first.
 
+## 2026-11-13
+- **App:** TASK-008 done. The popup follows display changes made outside the app (screen signals, 250 ms debounce, no polling), waits for an active drag, and cancels the countdown when monitor 2 goes or becomes the primary. 153 tests. Owner checked it on the real monitors: all OK.
+
 ## 2026-11-12
 - **App:** TASK-007 code done (in review). The Start with Windows menu item reads and writes the HKCU Run key (`autostart.py`) and respects a disable in Task Manager. Tests use a throwaway registry key. 141 tests.
 - **App:** TASK-006 done. Drag and snap tile 2, apply, a 10 s Keep/Revert countdown (`revert.py`), the inline error, and revert on Exit and on a crash. 125 tests. Checked by script on the real displays. Owner checked it with the real mouse: all OK.

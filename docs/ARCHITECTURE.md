@@ -252,6 +252,8 @@ The check runs right after `QApplication` is created and before the icon or tray
 
 Connect `QGuiApplication.screenAdded`, `screenRemoved`, `primaryScreenChanged` and every screen's `geometryChanged` to a debounced (250 ms) `refresh()` that calls `displays.snapshot()` and updates the popup. No polling (NFR-02). If a revert countdown is running and the secondary disappears, the countdown is cancelled (nothing to revert) and logged.
 
+**As built (TASK-008):** `AppController._watch_screens()` / `on_displays_changed()`, debounce `DISPLAY_DEBOUNCE_MS`. A snapshot equal to the one already shown is ignored (our own `set_position` read-back), so it never re-applies or restarts the countdown. During a drag, snap animation or apply the refresh re-arms the timer and runs afterwards. It also runs with the popup closed, so the countdown is cancelled when monitor 2 goes even then. The countdown is also cancelled when its monitor becomes the primary (Windows refuses to move a primary).
+
 ## 13. DPI
 
 Qt 6 runs per-monitor-DPI-aware (v2) by default, so `EnumDisplaySettings` returns physical pixels and positions are consistent. Do **not** set `QT_ENABLE_HIGHDPI_SCALING=0`. All maths in `layout.py` uses physical pixels; only the canvas uses logical pixels.
