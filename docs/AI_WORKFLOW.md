@@ -1,6 +1,6 @@
 # AI Project Roles & Workflow
 
-**Last Updated:** 2026-11-12
+**Last Updated:** 2026-11-13
 **Status:** Active convention — governs how AI sessions operate on this project
 
 This project uses the **role-workflow** skill (Manager, Tasker, Coder, Auditor, Advisor, QA). The skill holds the full role definitions; this file holds **this project's settings and any project-specific rules**, which override the skill's defaults.
@@ -22,13 +22,13 @@ task_id_format: TASK-NNN / BUG-NNN    # file names: TASK-012-short-slug.md
 roles_enabled: [Manager, Tasker, Coder, Auditor, Advisor, QA]
 
 auditor:
-  git_sync: off              # project is not a git repository yet (2026-11-12)
+  git_sync: off              # git repo with GitHub remote since 2026-11-12; owner commits/pushes on request
   git_scope: audited
   branch_policy: new-branch
   scan_chat_sessions: true
   verify_sources:
     - code
-    - git history            # once the repo is initialised
+    - git history
     - Windows display state  # Settings → System → Display, or `python -m display_location --list`
 
 qa_targets:
@@ -55,3 +55,4 @@ qa_targets:
 | Date | Change | Reason |
 |---|---|---|
 | 2026-11-12 | File created from the role-workflow skill template | Adopt the role-based workflow in this project |
+| 2026-11-13 | Audit: git_sync comment and verify_sources updated (the repo exists, remote `origin` on GitHub) | The comment said "not a git repository yet" |

@@ -1,7 +1,7 @@
 # Roadmap — Display Location
 
-**Last Updated:** 2026-11-12
-**Current version target:** v1.0
+**Last Updated:** 2026-11-13
+**Current version:** v1.0.0 built (TASK-001 … TASK-010 Done). Next: the QA session below.
 
 Task files live in [tasks/](tasks/). Status values: `Todo` → `In progress` → `Done` (the task file is the source of truth; keep this table in sync).
 

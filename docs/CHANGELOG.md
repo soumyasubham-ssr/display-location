@@ -3,6 +3,8 @@
 Notable changes to docs, decisions and the app. Newest first.
 
 ## 2026-11-13
+- **Repo:** README rewritten for GitHub (logo, badges, screenshots, how it works, download link, install). Screenshots are rendered from the real widgets by `tools/make_screenshots.py` into `docs/images/`. v1.0.0 published as a GitHub release with `DisplayLocation.exe` attached.
+- **Docs (audit):** ARCHITECTURE status and test list brought up to date; AI_WORKFLOW no longer says the project isn't a git repo; ROADMAP shows v1.0.0 built. Recorded one known deviation: a 200 ms Ctrl+C wake-up timer runs all the time (NFR-02 says no polling; idle CPU still ≈ 0 %).
 - **Release:** v1.0.0. TASK-010 done: `build.ps1` builds `dist\DisplayLocation.exe` (one file, windowed, **49 MB**, version info "Display Location 1.0.0"). Smoke-tested (icon, single instance). README has install steps. Owner checked the exe outside Claude: all OK, which also closes TASK-007 (Start with Windows, sign out/in).
 - **App:** TASK-009 done. "Identify displays" shows a big 1 / 2 on each monitor for 3 s (`identify.py`), click-through and without taking focus. 166 tests. Owner checked it on the real monitors: all OK.
 - **App:** TASK-008 done. The popup follows display changes made outside the app (screen signals, 250 ms debounce, no polling), waits for an active drag, and cancels the countdown when monitor 2 goes or becomes the primary. 153 tests. Owner checked it on the real monitors: all OK.

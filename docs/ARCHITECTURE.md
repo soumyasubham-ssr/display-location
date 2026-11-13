@@ -1,7 +1,7 @@
 # Architecture — Display Location
 
-**Last Updated:** 2026-11-12
-**Status:** Planned (no code yet). Coder updates this file when the implementation deviates.
+**Last Updated:** 2026-11-13
+**Status:** Built — v1.0.0 (TASK-001 … TASK-010). "As built" notes in each section record where the code differs from the original plan.
 
 Requirements are in [REQUIREMENTS.md](REQUIREMENTS.md) (FR-xx / NFR-xx). Reasons for choices are in [DECISIONS.md](DECISIONS.md) (D-xxx).
 
@@ -31,7 +31,8 @@ Display Location/
 │  ├─ icon-source.png            owner's artwork, the master for the icon (D-015)
 │  └─ icon.ico                   app + tray icon (multi-size 16…256), generated
 ├─ tools/
-│  └─ make_icon.py               regenerates assets/icon.ico from icon-source.png (Pillow)
+│  ├─ make_icon.py               regenerates assets/icon.ico from icon-source.png (Pillow)
+│  └─ make_screenshots.py        renders the README images in docs/images/ from the real widgets
 ├─ src/display_location/
 │  ├─ __init__.py                __version__
 │  ├─ __main__.py                entry point: CLI flags or start the tray app
@@ -46,11 +47,17 @@ Display Location/
 │  ├─ single_instance.py         QLocalServer/QLocalSocket guard
 │  ├─ resources.py               finds assets/ from source or the PyInstaller bundle
 │  └─ log_setup.py               rotating file logging
-├─ tests/
+├─ tests/                       166 tests (2026-11-13)
 │  ├─ test_layout.py             unit tests for layout.py (required)
-│  ├─ test_autostart.py          registry tests using a temp value name
+│  ├─ test_displays.py           display backend, read-only (never changes the layout)
+│  ├─ test_popup.py              popup positioning, status messages, toggle guard
+│  ├─ test_revert.py             Keep/Revert countdown, apply wiring, dragging
+│  ├─ test_live_refresh.py       live refresh on display changes (TASK-008)
+│  ├─ test_identify.py           identify overlays (TASK-009)
+│  ├─ test_autostart.py          registry tests using a throwaway key
 │  ├─ test_single_instance.py    second-launch and killed-instance tests (real processes)
 │  ├─ test_tray.py               menu order, tooltip, signals
+│  ├─ test_smoke.py              version, imports
 │  └─ conftest.py                one shared QApplication for all tests
 └─ docs/                         shared project memory (this folder)
 ```
@@ -255,6 +262,8 @@ The check runs right after `QApplication` is created and before the icon or tray
 Connect `QGuiApplication.screenAdded`, `screenRemoved`, `primaryScreenChanged` and every screen's `geometryChanged` to a debounced (250 ms) `refresh()` that calls `displays.snapshot()` and updates the popup. No polling (NFR-02). If a revert countdown is running and the secondary disappears, the countdown is cancelled (nothing to revert) and logged.
 
 **As built (TASK-008):** `AppController._watch_screens()` / `on_displays_changed()`, debounce `DISPLAY_DEBOUNCE_MS`. A snapshot equal to the one already shown is ignored (our own `set_position` read-back), so it never re-applies or restarts the countdown. During a drag, snap animation or apply the refresh re-arms the timer and runs afterwards. It also runs with the popup closed, so the countdown is cancelled when monitor 2 goes even then. The countdown is also cancelled when its monitor becomes the primary (Windows refuses to move a primary).
+
+**Known deviation from NFR-02 (found by audit, 2026-11-13):** `app._install_sigint_handler()` runs a 200 ms no-op `QTimer` for the whole life of the app, so Python can handle Ctrl+C while Qt's loop runs. It is a periodic wake-up, not display polling; the owner's idle-CPU check (TASK-008) still read ≈ 0 %. It is only useful with a console, so a Coder could skip it in the windowed exe (open item, not a task yet).
 
 ## 13. DPI
 
