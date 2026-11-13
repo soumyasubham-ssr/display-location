@@ -46,7 +46,7 @@ class TrayIcon(QObject):
         self.tray.activated.connect(self._on_activated)
 
         # Hooks the controller can replace; consulted every time the menu opens.
-        self.autostart_state = lambda: None  # None = feature not available yet (TASK-007)
+        self.autostart_state = lambda: None  # None = not available (greyed out); set by AppController
 
     def show(self) -> None:
         self.tray.show()

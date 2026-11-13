@@ -31,7 +31,7 @@ def test_menu_entries_in_order(tray):
     assert tray.act_autostart.isCheckable()
 
 
-def test_autostart_placeholder_disabled_until_task_007(tray):
+def test_autostart_item_follows_state_hook(tray):
     tray._refresh_menu()
     assert not tray.act_autostart.isEnabled()
     tray.autostart_state = lambda: True

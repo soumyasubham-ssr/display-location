@@ -11,7 +11,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
-from display_location import __version__, displays
+from display_location import __version__, autostart, displays
 from display_location import log_setup
 from display_location.log_setup import setup_logging
 from display_location.popup import Popup
@@ -53,6 +53,10 @@ class AppController:
         self.single.show_requested.connect(lambda: self.toggle_popup(open_only=True))
         self.app.aboutToQuit.connect(self.before_exit)
         log_setup.crash_handler = self._revert_on_crash  # NFR-06
+        try:
+            autostart.refresh_stale_path()  # exe moved since it was enabled (packaged exe only)
+        except OSError as exc:
+            log.error("Could not check the Start with Windows entry: %s", exc)
         self._create_tray_when_available()
 
     def _create_tray_when_available(self) -> None:
@@ -72,6 +76,7 @@ class AppController:
         self.tray.identify_requested.connect(self.identify_displays)
         self.tray.autostart_toggled.connect(self.set_autostart)
         self.tray.exit_requested.connect(self.exit)
+        self.tray.autostart_state = self.autostart_state
         self.tray.show()
 
     # ------------------------------------------------------------------ actions
@@ -167,8 +172,19 @@ class AppController:
     def identify_displays(self) -> None:
         log.info("identify displays requested (not implemented until TASK-009)")
 
+    def autostart_state(self) -> bool | None:
+        """Read on every menu open (FR-12). None = registry unreadable (item greyed out)."""
+        try:
+            return autostart.is_enabled()
+        except OSError as exc:
+            log.error("Could not read the Start with Windows entry: %s", exc)
+            return None
+
     def set_autostart(self, enabled: bool) -> None:
-        log.info("start with Windows -> %s requested (not implemented until TASK-007)", enabled)
+        try:
+            autostart.set_enabled(enabled)
+        except OSError as exc:
+            log.error("Could not change Start with Windows to %s: %s", enabled, exc)
 
     def exit(self) -> None:
         log.info("Exit requested from the tray menu")

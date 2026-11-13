@@ -240,6 +240,8 @@ For each `Display`, find the `QScreen` whose `name()` equals `device_name`; show
 - `is_enabled()`: Run value exists **and** is not disabled in `HKCU\...\Explorer\StartupApproved\Run` (value `DisplayLocation`, first byte `0x03` = disabled by user in Task Manager).
 - `enable()`: write the Run value and delete any `StartupApproved` value for it. `disable()`: delete the Run value.
 
+**As built (TASK-007):** all functions take an optional `AutostartKeys` so tests use `HKCU\Software\DisplayLocation-pytest`. "Disabled" means an odd first byte in StartupApproved (0x03 / 0x07). `refresh_stale_path()` runs at start in the packaged exe only.
+
 ## 11. Single instance (`single_instance.py`)
 
 Server name `DisplayLocation-<USERNAME>`. At start: `QLocalSocket.connectToServer`; if connected within 300 ms → send `b"show"` → exit with code 0. Otherwise `QLocalServer.removeServer(name)` then `listen(name)`; incoming `show` → controller opens popup (FR-13).

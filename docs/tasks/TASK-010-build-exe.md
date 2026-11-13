@@ -41,3 +41,11 @@ The owner wants a standalone exe that starts with Windows, without needing Pytho
 
 ## Out of scope
 Installer, code signing, auto-update.
+
+## Carried over from TASK-007 (2026-11-13)
+Start with Windows can only be checked from a process **outside** the Claude desktop app, because Claude's packaged-app redirection hides HKCU writes from Task Manager. With the built `DisplayLocation.exe`, started by the owner:
+- [ ] Toggle on → Task Manager → Startup apps lists DisplayLocation as Enabled.
+- [ ] Disable it in Task Manager → the menu item shows unticked; tick it again → Enabled.
+- [ ] Sign out and in with it enabled → the tray icon appears.
+- [ ] Toggle off → the entry is removed.
+Then mark TASK-007 Done.
