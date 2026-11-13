@@ -28,14 +28,14 @@ Task files live in [tasks/](tasks/). Status values: `Todo` → `In progress` →
 ### M3 — System integration
 | Task | Title | Depends on | Status |
 |---|---|---|---|
-| TASK-007 | Start with Windows toggle | 004 | In review |
+| TASK-007 | Start with Windows toggle | 004 | Done |
 | TASK-008 | Live refresh on monitor/layout changes | 005 | Done |
 | TASK-009 | Identify displays overlay | 004, 002 | Done |
 
 ### M4 — Release
 | Task | Title | Depends on | Status |
 |---|---|---|---|
-| TASK-010 | Build `DisplayLocation.exe` with PyInstaller | 001–009 | Todo |
+| TASK-010 | Build `DisplayLocation.exe` with PyInstaller | 001–009 | Done |
 | — | **QA session** against REQUIREMENTS §6 (Role: QA) | 010 | Todo |
 
 ## Suggested order

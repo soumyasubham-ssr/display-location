@@ -2,7 +2,7 @@ import display_location
 
 
 def test_version():
-    assert display_location.__version__ == "0.1.0"
+    assert display_location.__version__ == "1.0.0"
 
 
 def test_main_module_imports():

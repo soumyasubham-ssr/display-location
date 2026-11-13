@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "display-location"
-version = "0.1.0"
+version = "1.0.0"
 description = "Windows tray app to reposition the second monitor around the primary."
 readme = "README.md"
 requires-python = ">=3.14"

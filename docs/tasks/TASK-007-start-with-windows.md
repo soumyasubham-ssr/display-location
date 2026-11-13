@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | In review — code and tests done; Task Manager and sign-in checks moved to the exe test (TASK-010) |
+| Status | Done |
 | Milestone | M3 — System integration |
 | Depends on | TASK-004 |
 | Requirements | FR-10 (menu item), FR-12; decision D-006 |
@@ -31,10 +31,10 @@ The owner wants the app available automatically after login.
 3. Log every enable/disable with the command written.
 
 ## Acceptance criteria
-- [ ] Toggle on → value present in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`; Task Manager → Startup apps lists "DisplayLocation" as Enabled.
-- [ ] Toggle off → value removed.
-- [ ] Disable in Task Manager → menu shows unchecked; re-check → enabled again in Task Manager.
-- [ ] Sign out/in (or reboot) with it enabled → tray icon appears (verify with the packaged exe after TASK-010).
+- [x] Toggle on → value present in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`; Task Manager → Startup apps lists "DisplayLocation" as Enabled.
+- [x] Toggle off → value removed.
+- [x] Disable in Task Manager → menu shows unchecked; re-check → enabled again in Task Manager.
+- [x] Sign out/in (or reboot) with it enabled → tray icon appears (verify with the packaged exe after TASK-010).
 - [x] `python -m pytest` passes and leaves no test values in the registry.
 
 ## Edge cases
@@ -62,3 +62,4 @@ Installer, Task Scheduler.
   - re-tick → Enabled;
   - sign in with it enabled → tray icon appears;
   - toggle off → removed.
+- **Closed (2026-11-13):** the remaining checks were run with the packaged exe in TASK-010 and passed (owner report).

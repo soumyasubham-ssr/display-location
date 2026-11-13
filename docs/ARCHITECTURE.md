@@ -280,4 +280,6 @@ pyinstaller --noconfirm --onefile --windowed --name DisplayLocation `
 
 `__main__.py` must use **absolute** imports (`from display_location.app import main`): PyInstaller runs it as a top-level script, where relative imports fail.
 
+**As built (TASK-010):** `build.ps1` also passes `--clean` and `--version-file` (generated from `__version__` into `build-tmp`, UTF-8 without BOM), checks the venv and PyInstaller first, and runs native commands with `$ErrorActionPreference = 'Continue'` because PyInstaller logs to stderr. Output: one 49 MB file.
+
 Use **absolute** paths: with `--specpath` outside the project, PyInstaller resolves relative paths against the spec folder. Output: `dist/DisplayLocation.exe`.

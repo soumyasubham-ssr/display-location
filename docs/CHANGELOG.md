@@ -3,6 +3,7 @@
 Notable changes to docs, decisions and the app. Newest first.
 
 ## 2026-11-13
+- **Release:** v1.0.0. TASK-010 done: `build.ps1` builds `dist\DisplayLocation.exe` (one file, windowed, **49 MB**, version info "Display Location 1.0.0"). Smoke-tested (icon, single instance). README has install steps. Owner checked the exe outside Claude: all OK, which also closes TASK-007 (Start with Windows, sign out/in).
 - **App:** TASK-009 done. "Identify displays" shows a big 1 / 2 on each monitor for 3 s (`identify.py`), click-through and without taking focus. 166 tests. Owner checked it on the real monitors: all OK.
 - **App:** TASK-008 done. The popup follows display changes made outside the app (screen signals, 250 ms debounce, no polling), waits for an active drag, and cancels the countdown when monitor 2 goes or becomes the primary. 153 tests. Owner checked it on the real monitors: all OK.
 
