@@ -30,7 +30,7 @@ Task files live in [tasks/](tasks/). Status values: `Todo` → `In progress` →
 |---|---|---|---|
 | TASK-007 | Start with Windows toggle | 004 | In review |
 | TASK-008 | Live refresh on monitor/layout changes | 005 | Done |
-| TASK-009 | Identify displays overlay | 004, 002 | Todo |
+| TASK-009 | Identify displays overlay | 004, 002 | Done |
 
 ### M4 — Release
 | Task | Title | Depends on | Status |

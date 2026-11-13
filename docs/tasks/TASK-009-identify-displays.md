@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Todo |
+| Status | Done |
 | Milestone | M3 — System integration |
 | Depends on | TASK-002, TASK-004 |
 | Requirements | FR-10 (menu item), FR-11 |
@@ -29,10 +29,21 @@ Lets the owner confirm which physical monitor is "1" and which is "2" — the sa
 3. Numbering must match the popup tiles exactly.
 
 ## Acceptance criteria
-- [ ] "1" appears on the primary monitor, "2" on the secondary, centred, for ~3 s.
-- [ ] Correct on mixed scaling (100 % + 125 %).
-- [ ] Doesn't steal focus from the active app (typing continues in the current window).
-- [ ] In SINGLE state, only "1" is shown.
+- [x] "1" appears on the primary monitor, "2" on the secondary, centred, for ~3 s.
+- [x] Correct on mixed scaling (100 % + 125 %).
+- [x] Doesn't steal focus from the active app (typing continues in the current window).
+- [x] In SINGLE state, only "1" is shown.
 
 ## Out of scope
 Showing monitor names/resolutions in the overlay.
+
+## Completion notes (Coder, 2026-11-13)
+- **New file `identify.py`:** `numbered(snap)` gives ("1", primary) and ("2", secondary when the status is OK) — the same rule as the popup tiles. `find_screen()` matches `QScreen.name()` to `Display.device_name`; if no name matches, it matches by physical size (logical geometry × device pixel ratio), preferring the screen whose primary-ness agrees, and logs a warning. `IdentifyOverlay` is a 220 px rounded translucent box with the number at ~120 pt (capped at 80 % of the box). `Identifier` keeps one window per number and one 3 s single-shot timer.
+- **Window flags:** as requirement 2, plus `WindowDoesNotAcceptFocus` and `NoDropShadowWindowHint`; `setFocusPolicy(NoFocus)`.
+- **Mixed DPI:** `place_on()` calls `setScreen()` before `setGeometry()`, so each overlay takes its monitor's scale and is centred in that screen's logical geometry.
+- **Repeat click:** windows are reused and the timer restarts. A "2" left over from a previous click is hidden if monitor 2 has gone.
+- **app.py:** `identify_displays()` takes a fresh snapshot **without** replacing `self.snapshot` (the popup's state), so a pending live refresh (TASK-008) still sees the change. `before_exit()` closes the overlays.
+- **tray.py:** no change; the menu item was already enabled and emitting `identify_requested`.
+- **Tests:** `tests/test_identify.py` (13 tests: numbering, name/size matching incl. 125 %, centring, flags, real-screen placement, reuse + timer restart, timeout, SINGLE, monitor 2 gone, controller wiring). 166 tests pass.
+- **Owner check (2026-11-13):** the owner reports all seven checks passed (numbers on the right monitors and matching the tiles, mixed scaling, no focus stolen, click-through, repeat click, SINGLE shows only "1").
+  - **Not confirmed from the log:** the Claude-started instance logged display changes from 11:06 to 11:44 but no "Identify displays" line. The owner most likely ran the check on a copy started outside Claude, which logs to the real `%LOCALAPPDATA%` (README). Acceptance rests on the owner's observation.

@@ -233,6 +233,8 @@ primary tile is centred in the canvas; secondary tile = its physical rect × sca
 
 For each `Display`, find the `QScreen` whose `name()` equals `device_name`; show a frameless, translucent, always-on-top, click-through window centred on that screen with the number (1 = primary, 2 = secondary) at ~120 pt for 3 s.
 
+**As built (TASK-009):** `Identifier` (owned by the controller) reuses one `IdentifyOverlay` per number and restarts its 3 s timer on a repeat click. If no `QScreen` name matches, `find_screen()` falls back to physical size and logs a warning. Each overlay calls `setScreen()` before it is sized, for mixed DPI. Identify reads its own snapshot and does not replace the popup's.
+
 ## 10. Autostart (`autostart.py`)
 
 - Key: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, value name **`DisplayLocation`**.

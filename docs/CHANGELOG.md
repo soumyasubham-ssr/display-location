@@ -3,6 +3,7 @@
 Notable changes to docs, decisions and the app. Newest first.
 
 ## 2026-11-13
+- **App:** TASK-009 done. "Identify displays" shows a big 1 / 2 on each monitor for 3 s (`identify.py`), click-through and without taking focus. 166 tests. Owner checked it on the real monitors: all OK.
 - **App:** TASK-008 done. The popup follows display changes made outside the app (screen signals, 250 ms debounce, no polling), waits for an active drag, and cancels the countdown when monitor 2 goes or becomes the primary. 153 tests. Owner checked it on the real monitors: all OK.
 
 ## 2026-11-12

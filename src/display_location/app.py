@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from display_location import __version__, autostart, displays
 from display_location import log_setup
+from display_location.identify import Identifier
 from display_location.log_setup import setup_logging
 from display_location.popup import Popup
 from display_location.resources import icon_path
@@ -37,6 +38,7 @@ class AppController:
         self.icon = icon
         self.tray: TrayIcon | None = None
         self.popup: Popup | None = None
+        self.identifier: Identifier | None = None
         self.snapshot_fn = displays.snapshot  # replaceable in tests
         self.set_position_fn = displays.set_position  # replaceable in tests
         self.snapshot: displays.DisplaySnapshot | None = None  # last one shown
@@ -221,7 +223,13 @@ class AppController:
             self.revert.revert()
 
     def identify_displays(self) -> None:
-        log.info("identify displays requested (not implemented until TASK-009)")
+        """Show "1" / "2" on the monitors for 3 s (FR-11). Again while shown → timer restarts."""
+        if self.identifier is None:
+            self.identifier = Identifier()
+        # Read-only: don't replace self.snapshot, which is what the popup shows.
+        snap = self.snapshot_fn()
+        log.info("Identify displays: %s", snap.status.value)
+        self.identifier.show(snap)
 
     def autostart_state(self) -> bool | None:
         """Read on every menu open (FR-12). None = registry unreadable (item greyed out)."""
@@ -256,6 +264,8 @@ class AppController:
         log_setup.crash_handler = None
         if self.popup is not None:
             self.popup.close()
+        if self.identifier is not None:
+            self.identifier.close()
         if self.tray is not None:
             self.tray.hide()
         self.single.close()
