@@ -68,6 +68,6 @@ Each decision: context → decision → consequences. Status is **Accepted** unl
 
 ### D-015 — The app icon comes from the owner's artwork
 - **Context:** TASK-004 said to draw an icon with Pillow (grey "1" and purple "2" tiles). Before the task started, the owner added `assets/icon-source.png` (blue and teal monitors with a move arrow, transparent background, 1254 px) and `assets/icon-mono.png` (a white-only version).
-- **Decision:** `tools/make_icon.py` builds `assets/icon.ico` (16, 20, 24, 32, 40, 48, 64 and 256 px) from `icon-source.png`. It crops to the visible pixels and centres the result on a transparent square. `icon-mono.png` is not used: being white-only, it would vanish on a light taskbar, and it has stray specks near its edges.
+- **Decision:** `tools/make_icon.py` builds `assets/icon.ico` (16, 20, 24, 32, 40, 48, 64 and 256 px) from `icon-source.png`. It crops to the visible pixels and centres the result on a transparent square. `icon-mono.png` is not used: being white-only, it would vanish on a light taskbar, and it has stray specks near its edges. It was never committed, and was deleted from the project folder on 2026-11-13 at the owner's request.
 - **Consequences:** Checked at 16, 24, 32 and 48 px on dark and light taskbars. It reads as two monitors at every size, and the arrow shows from 24 px up. At the owner's 150 % scaling, Windows uses the 24 px image, which looks sharp. If a simpler small-size icon is ever wanted, add a hand-made 16 px image (new decision).
 
